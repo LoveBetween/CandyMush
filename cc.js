@@ -68,6 +68,7 @@ class Controller{
                         this.model.grid[cell[0]][cell[1]] = this.model.grid[this.selectedCell[0]][this.selectedCell[1]];
                         this.model.grid[this.selectedCell[0]][this.selectedCell[1]] = temp;
                         this.selectedCell = "no cell selected";
+                        this.vue.displayGrid(this.model.grid); //pass over cell selection
                     }
                     else { //play the animation
                         console.log("swaping cells");
@@ -237,7 +238,6 @@ class Vue{
         that.canvas.fill();
     }
 
-
     displayGrid(grid, that){
         if (that == undefined)that = this;
         that.canvas.rect(0, 0, that.canvas.width, that.canvas.height);
@@ -251,6 +251,7 @@ class Vue{
                 }
             }
         }
+        that.displayScore(that.model.score, that);
     }
     displayAnimation(that, grid, animationsBuffer){ 
         if (!Array.isArray(animationsBuffer) || !animationsBuffer.length){
@@ -285,10 +286,17 @@ class Vue{
         }
     }
 
+    displayScore(score, that){
+        that.canvas.font = "24px Arial";
+        that.canvas.fillStyle =  "Black";
+        that.canvas.fillText("Score " + score, that.canvas.width - 120, 20);
+        //that.canvas.fillStyle =  "White";
+        //that.canvas.strokeText("Score " + score, that.canvas.width - 120, 20, 4);
+    }
 }
 
-const colors = ["Green", "Red", "Blue", "Black", "Yellow",
-                "Salmon", "Cyan", "Pink", "Orange", "Purple"];
+const colors = ["Green", "Red", "Blue", "Orange", "Yellow",
+                "Salmon", "Pink", "Cyan", "Purple"];
 
 function inputHandler(canvas, e, controller){
     let rect = canvas.getBoundingClientRect();
@@ -302,7 +310,7 @@ function init(){
     canvas.width = document.getElementById("viewport").width;
     canvas.height = document.getElementById("viewport").height;
 
-    var controller = new Controller(8, 8, 4, canvas);
+    var controller = new Controller(10, 10, 4, canvas);
 
     document.getElementById("viewport").addEventListener('click', function(e) { 
         inputHandler(document.getElementById("viewport"), e, controller)});
