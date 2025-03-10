@@ -1,9 +1,11 @@
-function BeanAnimation(startRow, endRow, fallenDistance, column, color){
+function BeanAnimation(startRow, endRow, rowMoved, startColumn, endColumn, columnMoved, color){
     this.startRow = startRow;
     this.endRow = endRow;
-    this.column = column;
+    this.rowMoved = rowMoved;
+    this.startColumn = startColumn;
+    this.endColumn = endColumn;
+    this.columnMoved = columnMoved;
     this.color = color;
-    this.fallenDistance = fallenDistance;
 }
 
 class Model{
@@ -15,9 +17,9 @@ class Model{
         this.grid = [];
     }
     initGrid() {
-        for (var i=0;i<this.rows;i++) {
+        for (var i=0;i<this.columns;i++) {
             this.grid[i] = [];
-            for (var j=0;j<this.columns;j++){
+            for (var j=0;j<this.rows;j++){
                 this.generateBean(i, j)
             }
         }
@@ -48,18 +50,51 @@ class Controller{
 
     getInput(posX,posY){
         if(this.waitingForInput){
-            let cell = [Math.floor(posX/50), Math.floor(posY/50)];
-            if (this.selectedCell == "no cell selected"){
-                this.selectedCell = cell;
-                console.log(this.selectedCell);
-                this.vue.drawHighlighted(cell[0], cell[1], this.vue);
+            let selectedRow = Math.floor(posX/this.vue.cellSize);
+            let selectedColumn = Math.floor(posY/this.vue.cellSize);
+            if (selectedRow < this.model.rows && selectedColumn < this.model.columns){
+                let cell = [selectedRow, selectedColumn];
+                if (this.selectedCell == "no cell selected"){
+                    this.selectedCell = cell;
+                    this.vue.drawHighlighted(cell[0], cell[1], this.vue);
+                }
+                else if(Math.abs(this.selectedCell[0] - cell[0]) == 1 && this.selectedCell[1] - cell[1] == 0 ||
+                        Math.abs(this.selectedCell[1] - cell[1]) == 1 && this.selectedCell[0] - cell[0] == 0 ){
+                    //swap values
+                    let temp = this.model.grid[this.selectedCell[0]][this.selectedCell[1]];
+                    this.model.grid[this.selectedCell[0]][this.selectedCell[1]] = this.model.grid[cell[0]][cell[1]];
+                    this.model.grid[cell[0]][cell[1]] = temp;
+                    if (!this.checkForAlignements().length){ //if no alignements are made, swap back
+                        this.model.grid[cell[0]][cell[1]] = this.model.grid[this.selectedCell[0]][this.selectedCell[1]];
+                        this.model.grid[this.selectedCell[0]][this.selectedCell[1]] = temp;
+                        this.selectedCell = "no cell selected";
+                    }
+                    else { //play the animation
+                        console.log("swaping cells");
+                        let bean1 = new BeanAnimation(cell[1], this.selectedCell[1],0, cell[0], this.selectedCell[0], 0, this.model.grid[this.selectedCell[0]][this.selectedCell[1]]);
+                        let bean2 = new BeanAnimation(this.selectedCell[1], cell[1],0, this.selectedCell[0], cell[0], 0, this.model.grid[cell[0]][cell[1]]);
+
+                        let displayGrid = this.model.grid.slice(); // make a display copy with the two cells removed
+                        displayGrid[cell[0]][cell[1]] = -1;
+                        displayGrid[this.selectedCell[0]][this.selectedCell[1]] = -1;
+                        
+                        
+                        this.selectedCell = "no cell selected";
+                        this.waitingForInput = false;
+                        setTimeout(this.vue.displayAnimation, 200, this.vue, displayGrid, [bean1, bean2]);
+                    }
+                }
+                else { // if it wasnt an adjacent cell, move the selected cell
+                    this.selectedCell[0] = cell[0];
+                    this.selectedCell[1] = cell[1];
+                    this.vue.drawHighlighted(cell[0], cell[1], this.vue);
+                }
             }
         }
     }
 
     updateGrid(){
         var al = this.checkForAlignements();
-        console.log(al.length);
         if (al.length == 0){
             console.log("you can input now!");
             this.waitingForInput = true;
@@ -75,11 +110,11 @@ class Controller{
         var aligned = 0;
 
         //check columns
-        for(var i = 0; i<this.model.rows; i++){
+        for(var i = 0; i<this.model.columns; i++){
             let lastColor = "null";
             let secondLastColor = "null";
             let isAlignement = false;
-            for(var j = 0; j<this.model.columns; j++){
+            for(var j = 0; j<this.model.rows; j++){
                 let currentColor = this.model.grid[i][j];
                 if(secondLastColor != "null"){
                     if(secondLastColor == lastColor && lastColor == currentColor){
@@ -105,11 +140,11 @@ class Controller{
         }
         
         //check rows
-        for(var j = 0; j<this.model.columns; j++){
+        for(var j = 0; j<this.model.rows; j++){
             let lastColor = "null";
             let secondLastColor = "null";
             let isAlignement = false;
-            for(var i = 0; i<this.model.rows; i++){
+            for(var i = 0; i<this.model.columns; i++){
                 let currentColor = this.model.grid[i][j];
                 if(secondLastColor != "null"){
                     if(secondLastColor == lastColor && lastColor == currentColor){
@@ -158,7 +193,7 @@ class Controller{
                 if(this.model.grid[j][i] >= 0){
                     this.model.grid[j][fallingOn] = this.model.grid[j][i];
                     if (i != fallingOn){
-                        animationsBuffer.push(new BeanAnimation(i, fallingOn,0, j, this.model.grid[j][i])); //startRow, endRow, fallenDistance, column, color
+                        animationsBuffer.push(new BeanAnimation(i, fallingOn,0, j, j, 0, this.model.grid[j][i])); //startRow, endRow, rowMoved, startColumn, endColumn, columnMoved, color
                         this.model.grid[j][i] = -1;
                         displayGrid[j][i] = -1; //ensures the correct display
                     }
@@ -168,7 +203,7 @@ class Controller{
             //base on the value of fallingOn, repopulate the grid and add the new beans to the animationsBuffer
             for(var row = fallingOn; row>= 0; row--){
                 let beanType = this.model.generateBean(j, row);
-                animationsBuffer.push(new BeanAnimation(row-fallingOn-1, row, 0, j, beanType));
+                animationsBuffer.push(new BeanAnimation(row-fallingOn-1, row, 0, j,j,0, beanType));
             }
 
         }
@@ -189,12 +224,13 @@ class Vue{
 
     drawBean(x, y, color, that, movedX = 0, movedY = 0){
         that.canvas.beginPath();
-        that.canvas.arc(y  * that.cellSize + that.halfCellSize + movedY, x * that.cellSize + that.halfCellSize + movedX, 20, 0, 2 * Math.PI);
+        that.canvas.arc(y  * that.cellSize + that.halfCellSize + movedY, x * that.cellSize + that.halfCellSize + movedX, this.halfCellSize-2, 0, 2 * Math.PI);
         that.canvas.fillStyle = colors[color];
         that.canvas.fill();
     }
 
     drawHighlighted(x, y, that){
+        that.displayGrid(that.model.grid, that);
         that.canvas.beginPath();
         that.canvas.rect(x*that.cellSize, y*that.cellSize, that.cellSize, that.cellSize);
         that.canvas.fillStyle = "rgba(125, 116, 115, 0.5)"
@@ -215,26 +251,35 @@ class Vue{
                 }
             }
         }
-        console.log("display refreshed!");
     }
     displayAnimation(that, grid, animationsBuffer){ 
         if (!Array.isArray(animationsBuffer) || !animationsBuffer.length){
+            that.displayGrid(that.model.grid)
             that.controller.updateGrid();
-
         }
         else{
             that.displayGrid(grid);
             
             for (let i = animationsBuffer.length -1; i>=0; i--){
                 let bAnim = animationsBuffer[i]; //each bean animation
-                //console.log(bAnim);
-                that.drawBean(bAnim.startRow, bAnim.column, bAnim.color, that, bAnim.fallenDistance); // draw the bean
-                if(bAnim.startRow * that.cellSize + bAnim.fallenDistance >= bAnim.endRow * that.cellSize){
-                    grid[bAnim.column][bAnim.endRow] = bAnim.color;
+                that.drawBean(bAnim.startRow, bAnim.startColumn, bAnim.color, that, bAnim.rowMoved, bAnim.columnMoved); // draw the bean
+                // update the falling and switching
+                
+                // check for end of animation
+                let currentRow = bAnim.startRow * that.cellSize + bAnim.rowMoved;
+                let currentColumn = bAnim.startColumn * that.cellSize + bAnim.columnMoved;
+                if( currentRow >= bAnim.endRow * that.cellSize && bAnim.startRow < bAnim.endRow ||
+                    currentRow <= bAnim.endRow * that.cellSize && bAnim.startRow > bAnim.endRow ||
+                    currentColumn >= bAnim.endColumn * that.cellSize && bAnim.startColumn < bAnim.endColumn ||
+                    currentColumn <= bAnim.endColumn * that.cellSize && bAnim.startColumn > bAnim.endColumn)
+                {
+                    grid[bAnim.endColumn][bAnim.endRow] = bAnim.color;
                     animationsBuffer.splice(i, 1); // remove from buffer if it's arrived at destination
                 }
-                else bAnim.fallenDistance +=4; // update the falling
-                
+                if (bAnim.startRow < bAnim.endRow)bAnim.rowMoved +=5;
+                if (bAnim.startRow > bAnim.endRow)bAnim.rowMoved -=5;
+                if (bAnim.startColumn < bAnim.endColumn) bAnim.columnMoved +=5;
+                if (bAnim.startColumn > bAnim.endColumn) bAnim.columnMoved -=5;
             }
             setTimeout(that.displayAnimation, 10, that, grid, animationsBuffer); 
         }
