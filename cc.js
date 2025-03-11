@@ -310,7 +310,7 @@ function init(){
     canvas.width = document.getElementById("viewport").width;
     canvas.height = document.getElementById("viewport").height;
 
-    var controller = new Controller(20, 20, 6, canvas);
+    var controller = new Controller(50, 50, 6, canvas);
 
     document.getElementById("viewport").addEventListener('click', function(e) { 
         inputHandler(document.getElementById("viewport"), e, controller)});
